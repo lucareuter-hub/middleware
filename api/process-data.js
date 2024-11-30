@@ -126,7 +126,7 @@ export default async function handler(req, res) {
 
     // Identify-Call an Segment
     const segmentUrl = "https://api.segment.io/v1/identify";
-    const segmentWriteKey = "aVlVeHU1bEJQbTRyYlBZMEd4clk3OXZOckt5Nlh4czA="; // Dein Segment-Write-Key
+    const segmentWriteKey = "VKdNHL2QkvGiEGdzZomDRKB3VTQHBh2N"; // Dein Segment-Write-Key
 
     // Extrahiere alle gespeicherten Werte als Arrays
     const allEmails = Object.keys(updatedEmails);
