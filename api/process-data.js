@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+const response = await fetch(url, options);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
