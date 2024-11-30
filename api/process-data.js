@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // Authorization prüfen
   const authHeader = req.headers.authorization;
   const expectedToken = process.env.AUTH_TOKEN;
 
@@ -44,10 +43,7 @@ export default async function handler(req, res) {
         },
       });
 
-      console.log('GET Response:', response.status);
-
       if (response.status === 404) {
-        console.log('Profile not found. Returning default structure.');
         return { user_data: { emails: [], names: [], phones: [] } };
       }
 
@@ -56,8 +52,6 @@ export default async function handler(req, res) {
       }
 
       const data = await response.json();
-      console.log('Fetched Data:', JSON.stringify(data, null, 2));
-
       return data?.data?.user_data || { emails: [], names: [], phones: [] };
     } catch (error) {
       console.error('Error fetching existing profile:', error.message);
@@ -106,6 +100,11 @@ export default async function handler(req, res) {
     return updatedProfile;
   }
 
+  // Funktion: Vergleichen von Objekten
+  function isProfileChanged(existingProfile, updatedProfile) {
+    return JSON.stringify(existingProfile) !== JSON.stringify(updatedProfile);
+  }
+
   // Funktion: Daten im Stape Store speichern
   async function writeProfile(updatedProfile) {
     try {
@@ -132,16 +131,22 @@ export default async function handler(req, res) {
   // Hauptprozess
   try {
     const existingProfile = await getExistingProfile();
-    console.log('Existing Profile:', JSON.stringify(existingProfile, null, 2));
-
     const updatedProfile = updateProfile(existingProfile);
+
+    console.log('Existing Profile:', JSON.stringify(existingProfile, null, 2));
     console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
 
-    await writeProfile(updatedProfile);
+    // Nur schreiben, wenn sich etwas geändert hat
+    if (isProfileChanged(existingProfile, updatedProfile)) {
+      console.log('Profile has changed. Writing to Stape Store...');
+      await writeProfile(updatedProfile);
+    } else {
+      console.log('No changes detected. Skipping write operation.');
+    }
 
     return res.status(200).json({
       status: 'success',
-      message: 'Profile updated successfully',
+      message: 'Profile processed successfully',
       data: updatedProfile,
     });
   } catch (error) {
