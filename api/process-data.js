@@ -35,6 +35,7 @@ export default async function handler(req, res) {
   // Funktion: Daten aus dem Stape Store holen
   async function getExistingProfile() {
     try {
+      console.log('Sending GET request to fetch existing profile...');
       const response = await fetch(readUrl, {
         method: 'GET',
         headers: {
@@ -43,8 +44,10 @@ export default async function handler(req, res) {
         },
       });
 
+      console.log('GET Response Status:', response.status);
+
       if (response.status === 404) {
-        console.log('Profile not found. Initializing default structure.');
+        console.log('Profile not found. Returning default structure.');
         return { user_data: { emails: [], names: [], phones: [] } }; // Initialisiere leere Struktur
       }
 
@@ -53,6 +56,7 @@ export default async function handler(req, res) {
       }
 
       const data = await response.json();
+      console.log('Fetched Data from Database:', JSON.stringify(data, null, 2));
       return data?.data?.user_data || { emails: [], names: [], phones: [] };
     } catch (error) {
       console.error('Error fetching existing profile:', error.message);
@@ -70,8 +74,7 @@ export default async function handler(req, res) {
 
   // Funktion: Daten aktualisieren oder hinzufügen
   function updateProfile(existingProfile) {
-    // `user_data` sicherstellen
-    const updatedProfile = existingProfile || { user_data: { emails: [], names: [], phones: [] } };
+    const updatedProfile = existingProfile || { emails: [], names: [], phones: [] };
 
     if (!updatedProfile.emails) updatedProfile.emails = [];
     if (!updatedProfile.names) updatedProfile.names = [];
@@ -110,6 +113,7 @@ export default async function handler(req, res) {
   // Funktion: Daten im Stape Store speichern
   async function writeProfile(updatedProfile) {
     try {
+      console.log('Sending PATCH request to update profile...');
       const response = await fetch(writeUrl, {
         method: 'PATCH',
         headers: {
@@ -119,7 +123,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({ user_data: updatedProfile }),
       });
 
-      console.log('PATCH Response:', response.status);
+      console.log('PATCH Response Status:', response.status);
 
       if (!response.ok) {
         throw new Error(`Failed to write profile. Status: ${response.status}`);
@@ -132,11 +136,15 @@ export default async function handler(req, res) {
 
   // Hauptprozess
   try {
+    // Profil aus der Datenbank abrufen
     const existingProfile = await getExistingProfile();
+
+    console.log('Existing Profile from Database:', JSON.stringify(existingProfile, null, 2));
+
+    // Profil aktualisieren
     const updatedProfile = updateProfile(existingProfile);
 
-    console.log('Existing Profile:', JSON.stringify(existingProfile, null, 2));
-    console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
+    console.log('Updated Profile to Write:', JSON.stringify(updatedProfile, null, 2));
 
     // Nur schreiben, wenn sich etwas geändert hat
     if (isProfileChanged(existingProfile, updatedProfile)) {
