@@ -133,12 +133,20 @@ export default async function handler(req, res) {
     const allPhones = Object.keys(updatedPhones);
     const allNames = Object.keys(updatedNames);
 
+    // Erstelle kommagetrennte Strings
+    const allEmailsString = allEmails.join(", ");
+    const allPhonesString = allPhones.join(", ");
+    const allNamesString = allNames.join(", ");
+
     const segmentPayload = {
       userId: documentKey, // Eindeutige Nutzer-ID
       traits: {
         emails: allEmails, // Array aller E-Mails
         phones: allPhones, // Array aller Telefonnummern
         names: allNames, // Array aller Namen
+        all_emails_string: allEmailsString, // Kommagetrennter String aller E-Mails
+        all_phones_string: allPhonesString, // Kommagetrennter String aller Telefonnummern
+        all_names_string: allNamesString, // Kommagetrennter String aller Namen
         current_email: updatedCurrentData.email, // Aktuelle E-Mail
         current_phone: updatedCurrentData.phone, // Aktuelle Telefonnummer
         current_name: updatedCurrentData.name, // Aktueller Name
