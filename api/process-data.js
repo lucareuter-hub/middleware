@@ -2,12 +2,19 @@ export default async function handler(req, res) {
   const { storeurl, documentKey, first_name, last_name, email, phone, timestamp } = req.body;
 
   if (!storeurl || !documentKey) {
-    return res.status(400).json({ status: 'error', message: 'storeurl and documentKey are required' });
+    return res.status(400).json({
+      status: 'error',
+      message: 'storeurl and documentKey are required',
+    });
   }
 
   const writeUrl = `${storeurl}/${documentKey}`;
   const readUrl = `${storeurl}/${documentKey}`;
   const currentTimestamp = timestamp || Date.now();
+
+  console.log('Start processing...');
+  console.log('Read URL:', readUrl);
+  console.log('Write URL:', writeUrl);
 
   async function getExistingProfile() {
     try {
@@ -16,11 +23,20 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      if (response.status === 404) return { emails: [], names: [], phones: [] };
+      if (response.status === 404) {
+        console.log('Profile not found. Initializing default structure.');
+        return { emails: [], names: [], phones: [] }; // Leeres Profil
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch profile. Status: ${response.status}`);
+      }
+
       const data = await response.json();
+      console.log('Fetched Data from Database:', JSON.stringify(data, null, 2));
       return data?.data?.user_data || { emails: [], names: [], phones: [] };
     } catch (error) {
-      console.error('Error fetching profile:', error.message);
+      console.error('Error fetching existing profile:', error.message);
       throw new Error('Failed to fetch profile.');
     }
   }
@@ -45,7 +61,11 @@ export default async function handler(req, res) {
     if (first_name && last_name && !updatedProfile.names.some(
       (item) => item.first_name === first_name && item.last_name === last_name
     )) {
-      updatedProfile.names.push({ first_name, last_name, timestamp: currentTimestamp });
+      updatedProfile.names.push({
+        first_name,
+        last_name,
+        timestamp: currentTimestamp,
+      });
       console.log('Added new name:', `${first_name} ${last_name}`);
     }
 
@@ -81,11 +101,20 @@ export default async function handler(req, res) {
 
   async function writeProfile(updatedProfile) {
     try {
-      await fetch(writeUrl, {
+      console.log('Sending PATCH request to update profile...');
+      const response = await fetch(writeUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_data: updatedProfile }),
       });
+
+      console.log('PATCH Response Status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`Failed to write profile. Status: ${response.status}`);
+      }
+
+      console.log('Profile successfully updated.');
     } catch (error) {
       console.error('Error writing profile:', error.message);
       throw new Error('Failed to write profile.');
@@ -96,20 +125,25 @@ export default async function handler(req, res) {
     const existingProfile = await getExistingProfile();
     console.log('Existing Profile from Database:', JSON.stringify(existingProfile, null, 2));
 
-    const changesExist = isProfileChanged(existingProfile, updateProfile(existingProfile));
+    const updatedProfile = updateProfile(existingProfile);
+    console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
 
-    if (changesExist) {
-      console.log('Profile has changed. Writing to Stape Store...');
-      const updatedProfile = updateProfile(existingProfile);
+    if (isProfileChanged(existingProfile, updatedProfile)) {
+      console.log('Changes detected. Writing profile...');
       await writeProfile(updatedProfile);
+      return res.status(200).json({
+        status: 'success',
+        message: 'Profile updated successfully',
+        data: updatedProfile,
+      });
     } else {
       console.log('No changes detected. Skipping write operation.');
+      return res.status(200).json({
+        status: 'success',
+        message: 'No changes detected',
+        data: existingProfile,
+      });
     }
-
-    return res.status(200).json({
-      status: 'success',
-      message: 'Profile processed successfully',
-    });
   } catch (error) {
     console.error('Processing Error:', error.message);
     return res.status(500).json({
