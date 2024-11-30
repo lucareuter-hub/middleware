@@ -119,17 +119,41 @@ export default async function handler(req, res) {
     const keysToCompare = ['emails', 'names', 'phones'];
 
     for (const key of keysToCompare) {
-      const existingData = existingProfile[key] || [];
-      const updatedData = updatedProfile[key] || [];
+      let existingData = existingProfile[key] || [];
+      let updatedData = updatedProfile[key] || [];
 
       if (updatedData.length !== existingData.length) {
         console.log(`Detected change in ${key} length.`);
         return true;
       }
 
+      // Sort arrays to ensure consistent order
+      if (key === 'emails') {
+        existingData = existingData.slice().sort((a, b) => a.email.localeCompare(b.email));
+        updatedData = updatedData.slice().sort((a, b) => a.email.localeCompare(b.email));
+      } else if (key === 'phones') {
+        existingData = existingData.slice().sort((a, b) => a.phone.localeCompare(b.phone));
+        updatedData = updatedData.slice().sort((a, b) => a.phone.localeCompare(b.phone));
+      } else if (key === 'names') {
+        existingData = existingData.slice().sort((a, b) => {
+          const nameA = `${a.first_name} ${a.last_name}`;
+          const nameB = `${b.first_name} ${b.last_name}`;
+          return nameA.localeCompare(nameB);
+        });
+        updatedData = updatedData.slice().sort((a, b) => {
+          const nameA = `${a.first_name} ${a.last_name}`;
+          const nameB = `${b.first_name} ${b.last_name}`;
+          return nameA.localeCompare(nameB);
+        });
+      }
+
       for (let i = 0; i < updatedData.length; i++) {
-        const existingItem = existingData[i];
-        const updatedItem = updatedData[i];
+        const existingItem = { ...existingData[i] };
+        const updatedItem = { ...updatedData[i] };
+
+        // Remove the timestamp before comparison
+        delete existingItem.timestamp;
+        delete updatedItem.timestamp;
 
         if (JSON.stringify(existingItem) !== JSON.stringify(updatedItem)) {
           console.log(
