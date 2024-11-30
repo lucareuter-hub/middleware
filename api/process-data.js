@@ -55,17 +55,12 @@ export default async function handler(req, res) {
   function updateProfile(existingProfile = {}, newData) {
     const { email, phone, first_name, last_name, currentTimestamp } = newData;
 
-    const updatedProfile = { ...existingProfile };
-
-    updatedProfile.emails = Array.isArray(updatedProfile.emails)
-      ? updatedProfile.emails
-      : [];
-    updatedProfile.names = Array.isArray(updatedProfile.names)
-      ? updatedProfile.names
-      : [];
-    updatedProfile.phones = Array.isArray(updatedProfile.phones)
-      ? updatedProfile.phones
-      : [];
+    // Deep copy the arrays to prevent modifying existingProfile
+    const updatedProfile = {
+      emails: [...(existingProfile.emails || [])],
+      names: [...(existingProfile.names || [])],
+      phones: [...(existingProfile.phones || [])],
+    };
 
     if (
       email &&
