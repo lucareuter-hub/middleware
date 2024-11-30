@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+  // Authorization Token prüfen
   const authHeader = req.headers.authorization;
   const expectedToken = process.env.AUTH_TOKEN;
 
@@ -9,10 +10,12 @@ export default async function handler(req, res) {
     });
   }
 
+  // Nur POST-Anfragen erlauben
   if (req.method !== 'POST') {
     return res.status(405).json({ status: 'error', message: 'Only POST requests are allowed' });
   }
 
+  // Eingabedaten abrufen
   const { storeurl, documentKey, first_name, last_name, email, phone, timestamp } = req.body;
 
   if (!storeurl || !documentKey) {
@@ -22,6 +25,7 @@ export default async function handler(req, res) {
     });
   }
 
+  // URLs und Timestamp definieren
   const writeUrl = `${storeurl}/${documentKey}`;
   const readUrl = `${storeurl}/${documentKey}`;
   const currentTimestamp = timestamp || Date.now();
@@ -30,9 +34,7 @@ export default async function handler(req, res) {
   console.log('Read URL:', readUrl);
   console.log('Write URL:', writeUrl);
 
-  const authorizationHeader = `Bearer <YOUR_TOKEN>`; // Set your Stape Store Authorization Token
-
-  // Funktion: Daten aus dem Stape Store holen
+  // Funktion: GET-Request an Stape Store, um bestehende Daten zu holen
   async function getExistingProfile() {
     try {
       console.log('Sending GET request to fetch existing profile...');
@@ -40,7 +42,6 @@ export default async function handler(req, res) {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authorizationHeader,
         },
       });
 
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
 
       if (response.status === 404) {
         console.log('Profile not found. Initializing default structure.');
-        return { emails: [], names: [], phones: [] }; // Initialisiere leere Struktur
+        return { emails: [], names: [], phones: [] }; // Initialisiere leeres Profil
       }
 
       if (!response.ok) {
@@ -65,70 +66,82 @@ export default async function handler(req, res) {
     }
   }
 
-  // Funktion: Daten aktualisieren oder hinzufügen
+  // Funktion: Profil aktualisieren
   function updateProfile(existingProfile) {
-    const updatedProfile = existingProfile || { emails: [], names: [], phones: [] };
+    const updatedProfile = { ...existingProfile };
 
-    if (!updatedProfile.emails) updatedProfile.emails = [];
-    if (!updatedProfile.names) updatedProfile.names = [];
-    if (!updatedProfile.phones) updatedProfile.phones = [];
+    // Sicherstellen, dass Arrays existieren
+    updatedProfile.emails = updatedProfile.emails || [];
+    updatedProfile.names = updatedProfile.names || [];
+    updatedProfile.phones = updatedProfile.phones || [];
 
-    // Emails hinzufügen, falls sie fehlen
+    // Email hinzufügen, falls sie neu ist
     if (email) {
-      updatedProfile.emails.push({ email, timestamp: currentTimestamp });
+      const emailExists = updatedProfile.emails.some((item) => item.email === email);
+      if (!emailExists) {
+        updatedProfile.emails.push({ email, timestamp: currentTimestamp });
+        console.log('Added new email:', email);
+      }
     }
 
-    // Phones hinzufügen, falls sie fehlen
+    // Phone hinzufügen, falls es neu ist
     if (phone) {
-      updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
+      const phoneExists = updatedProfile.phones.some((item) => item.phone === phone);
+      if (!phoneExists) {
+        updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
+        console.log('Added new phone:', phone);
+      }
     }
 
-    // Names hinzufügen, falls sie fehlen
+    // Name hinzufügen, falls er neu ist
     if (first_name && last_name) {
-      updatedProfile.names.push({
-        first_name,
-        last_name,
-        timestamp: currentTimestamp,
-      });
+      const nameExists = updatedProfile.names.some(
+        (item) => item.first_name === first_name && item.last_name === last_name
+      );
+      if (!nameExists) {
+        updatedProfile.names.push({
+          first_name,
+          last_name,
+          timestamp: currentTimestamp,
+        });
+        console.log('Added new name:', `${first_name} ${last_name}`);
+      }
     }
 
     return updatedProfile;
   }
 
-  // Funktion: Vergleichen von Objekten
+  // Funktion: Profile vergleichen
   function isProfileChanged(existingProfile, updatedProfile) {
-    const standardizedExistingProfile = {
-      emails: existingProfile.emails || [],
-      names: existingProfile.names || [],
-      phones: existingProfile.phones || [],
-    };
+    const keysToCompare = ['emails', 'names', 'phones'];
 
-    console.log('Standardized Existing Profile:', JSON.stringify(standardizedExistingProfile));
-    console.log('Updated Profile:', JSON.stringify(updatedProfile));
+    for (const key of keysToCompare) {
+      const existingData = existingProfile[key] || [];
+      const updatedData = updatedProfile[key] || [];
 
-    // Check: Emails
-    if (standardizedExistingProfile.emails.length !== updatedProfile.emails.length) {
-      console.log('Email length mismatch detected.');
-      return true;
-    }
+      // Prüfen, ob Längen unterschiedlich sind
+      if (existingData.length !== updatedData.length) {
+        console.log(`${key} length mismatch detected.`);
+        return true;
+      }
 
-    // Check: Phones
-    if (standardizedExistingProfile.phones.length !== updatedProfile.phones.length) {
-      console.log('Phone length mismatch detected.');
-      return true;
-    }
+      // Prüfen, ob Inhalte unterschiedlich sind
+      const existingSet = new Set(existingData.map((item) => JSON.stringify(item)));
+      const updatedSet = new Set(updatedData.map((item) => JSON.stringify(item)));
 
-    // Check: Names
-    if (standardizedExistingProfile.names.length !== updatedProfile.names.length) {
-      console.log('Name length mismatch detected.');
-      return true;
+      for (const updatedItem of updatedSet) {
+        if (!existingSet.has(updatedItem)) {
+          console.log(`New ${key} data detected: ${updatedItem}`);
+          return true;
+        }
+      }
     }
 
     console.log('No changes detected in profile.');
     return false;
   }
 
-  // Funktion: Daten im Stape Store speichern
+  // Funktion: PATCH-Request, um das Profil zu speichern
   async function writeProfile(updatedProfile) {
     try {
       console.log('Sending PATCH request to update profile...');
@@ -136,7 +149,6 @@ export default async function handler(req, res) {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authorizationHeader,
         },
         body: JSON.stringify({ user_data: updatedProfile }),
       });
@@ -146,13 +158,15 @@ export default async function handler(req, res) {
       if (!response.ok) {
         throw new Error(`Failed to write profile. Status: ${response.status}`);
       }
+
+      console.log('Profile successfully updated.');
     } catch (error) {
       console.error('Error writing profile:', error.message);
       throw new Error(`Error writing profile: ${error.message}`);
     }
   }
 
-  // Hauptprozess
+  // Hauptprozess: Profil abrufen, aktualisieren und speichern
   try {
     const existingProfile = await getExistingProfile();
     console.log('Existing Profile from Database:', JSON.stringify(existingProfile, null, 2));
