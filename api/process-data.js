@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   const authHeader = req.headers.authorization;
   const expectedToken = process.env.AUTH_TOKEN;
 
-  if (!authHeader || !authHeader === `Bearer ${expectedToken}`) {
+  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
     return res.status(401).json({
       status: 'error',
       message: 'Unauthorized: Invalid or missing Authorization header',
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
       if (response.status === 404) {
         console.log('Profile not found. Initializing default structure.');
-        return { user_data: { emails: [], names: [], phones: [] } }; // Initialisiere leere Struktur
+        return { emails: [], names: [], phones: [] }; // Initialisiere leere Struktur
       }
 
       if (!response.ok) {
@@ -108,13 +108,23 @@ export default async function handler(req, res) {
 
   // Funktion: Vergleichen von Objekten
   function isProfileChanged(existingProfile, updatedProfile) {
-    // Standardisieren, um fehlende Felder auszugleichen
+    // Standardisierung sicherstellen
     const standardizedExistingProfile = {
       emails: existingProfile.emails || [],
       names: existingProfile.names || [],
       phones: existingProfile.phones || [],
     };
 
+    // Vergleich der Längen der Arrays (neue Daten hinzugefügt?)
+    if (
+      standardizedExistingProfile.emails.length !== updatedProfile.emails.length ||
+      standardizedExistingProfile.names.length !== updatedProfile.names.length ||
+      standardizedExistingProfile.phones.length !== updatedProfile.phones.length
+    ) {
+      return true;
+    }
+
+    // Vergleich der Inhalte
     return JSON.stringify(standardizedExistingProfile) !== JSON.stringify(updatedProfile);
   }
 
