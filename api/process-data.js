@@ -3,7 +3,7 @@ export default async function handler(req, res) {
   const authHeader = req.headers.authorization;
   const expectedToken = process.env.AUTH_TOKEN;
 
-  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
+  if (!authHeader || !authHeader === `Bearer ${expectedToken}`) {
     return res.status(401).json({
       status: 'error',
       message: 'Unauthorized: Invalid or missing Authorization header',
@@ -27,11 +27,11 @@ export default async function handler(req, res) {
   const readUrl = `${storeurl}/${documentKey}`;
   const currentTimestamp = timestamp || Date.now();
 
-  console.log('Start processing:');
+  console.log('Start processing...');
   console.log('Read URL:', readUrl);
   console.log('Write URL:', writeUrl);
 
-  const authorizationHeader = `Bearer <YOUR_TOKEN>`; // Stape Store Authorization Token
+  const authorizationHeader = `Bearer <YOUR_TOKEN>`; // Set your Stape Store Authorization Token
 
   // Funktion: Daten aus dem Stape Store holen
   async function getExistingProfile() {
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       }
 
       const data = await response.json();
-      console.log('Fetched Data:', data);
+      console.log('Fetched Data:', JSON.stringify(data, null, 2));
 
       return data?.data?.user_data || { emails: [], names: [], phones: [] };
     } catch (error) {
@@ -73,7 +73,12 @@ export default async function handler(req, res) {
     if (!updatedProfile.names) updatedProfile.names = [];
     if (!updatedProfile.phones) updatedProfile.phones = [];
 
-    // Hilfsfunktion: E-Mail hinzufügen, falls sie fehlt
+    // Debug: Arrays vor der Bearbeitung anzeigen
+    console.log('Existing Emails:', JSON.stringify(updatedProfile.emails));
+    console.log('Existing Phones:', JSON.stringify(updatedProfile.phones));
+    console.log('Existing Names:', JSON.stringify(updatedProfile.names));
+
+    // Hilfsfunktion: E-Mail prüfen und hinzufügen, falls sie fehlt
     if (email) {
       const existingEmail = updatedProfile.emails.find((e) => e.email === email);
       if (!existingEmail) {
@@ -84,7 +89,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Hilfsfunktion: Telefonnummer hinzufügen, falls sie fehlt
+    // Hilfsfunktion: Telefonnummer prüfen und hinzufügen, falls sie fehlt
     if (phone) {
       const existingPhone = updatedProfile.phones.find((p) => p.phone === phone);
       if (!existingPhone) {
@@ -95,7 +100,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Hilfsfunktion: Namen hinzufügen, falls sie fehlen
+    // Hilfsfunktion: Namen prüfen und hinzufügen, falls sie fehlen
     if (first_name && last_name) {
       const existingName = updatedProfile.names.find(
         (n) => n.first_name === first_name && n.last_name === last_name
@@ -107,6 +112,11 @@ export default async function handler(req, res) {
         console.log('Name already exists:', `${first_name} ${last_name}`);
       }
     }
+
+    // Debug: Arrays nach der Bearbeitung anzeigen
+    console.log('Updated Emails:', JSON.stringify(updatedProfile.emails));
+    console.log('Updated Phones:', JSON.stringify(updatedProfile.phones));
+    console.log('Updated Names:', JSON.stringify(updatedProfile.names));
 
     return updatedProfile;
   }
@@ -137,10 +147,10 @@ export default async function handler(req, res) {
   // Hauptprozess
   try {
     const existingProfile = await getExistingProfile();
-    console.log('Existing Profile:', existingProfile);
+    console.log('Existing Profile:', JSON.stringify(existingProfile, null, 2));
 
     const updatedProfile = updateProfile(existingProfile);
-    console.log('Updated Profile:', updatedProfile);
+    console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
 
     await writeProfile(updatedProfile);
 
