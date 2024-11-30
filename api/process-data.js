@@ -1,5 +1,3 @@
-
-
 export default async function handler(req, res) {
   const { storeUrl, documentKey, first_name, last_name, email, phone, timestamp } = req.body;
 
@@ -126,9 +124,52 @@ export default async function handler(req, res) {
     const result = await response.json();
     console.log("Daten erfolgreich aktualisiert:", result);
 
+    // Identify-Call an Segment
+    const segmentUrl = "https://api.segment.io/v1/identify";
+    const segmentWriteKey = "aVlVeHU1bEJQbTRyYlBZMEd4clk3OXZOckt5Nlh4czA="; // Dein Segment-Write-Key
+
+    // Extrahiere alle gespeicherten Werte als Arrays
+    const allEmails = Object.keys(updatedEmails);
+    const allPhones = Object.keys(updatedPhones);
+    const allNames = Object.keys(updatedNames);
+
+    const segmentPayload = {
+      userId: documentKey, // Eindeutige Nutzer-ID
+      traits: {
+        emails: allEmails, // Array aller E-Mails
+        phones: allPhones, // Array aller Telefonnummern
+        names: allNames, // Array aller Namen
+        current_email: updatedCurrentData.email, // Aktuelle E-Mail
+        current_phone: updatedCurrentData.phone, // Aktuelle Telefonnummer
+        current_name: updatedCurrentData.name, // Aktueller Name
+        updatedAt: new Date().toISOString(), // Zeitstempel des Updates
+      },
+    };
+
+    console.log("Sende Identify-Call an Segment:", JSON.stringify(segmentPayload, null, 2));
+
+    const segmentResponse = await fetch(segmentUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${Buffer.from(segmentWriteKey + ":").toString("base64")}`,
+      },
+      body: JSON.stringify(segmentPayload),
+    });
+
+    if (segmentResponse.ok) {
+      console.log("Identify-Call erfolgreich gesendet:", await segmentResponse.json());
+    } else {
+      console.error(
+        "Fehler beim Senden des Identify-Calls an Segment:",
+        segmentResponse.status,
+        await segmentResponse.text()
+      );
+    }
+
     return res.status(200).json({
       status: "success",
-      message: "Daten erfolgreich aktualisiert",
+      message: "Daten erfolgreich aktualisiert und Segment informiert",
       data: result,
     });
   } catch (error) {
