@@ -48,6 +48,7 @@ export default async function handler(req, res) {
     updatedProfile.names = updatedProfile.names || [];
     updatedProfile.phones = updatedProfile.phones || [];
 
+    // Hinzufügen neuer Daten, wenn nicht vorhanden
     if (email && !updatedProfile.emails.some((item) => item.email === email)) {
       updatedProfile.emails.push({ email, timestamp: currentTimestamp });
       console.log('Added new email:', email);
@@ -128,7 +129,10 @@ export default async function handler(req, res) {
     const updatedProfile = updateProfile(existingProfile);
     console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
 
-    if (isProfileChanged(existingProfile, updatedProfile)) {
+    // Vergleiche bestehendes und aktualisiertes Profil
+    const changesExist = isProfileChanged(existingProfile, updatedProfile);
+
+    if (changesExist) {
       console.log('Changes detected. Writing profile...');
       await writeProfile(updatedProfile);
       return res.status(200).json({
