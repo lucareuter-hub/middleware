@@ -1,6 +1,15 @@
-const response = await fetch(url, options);
-
 export default async function handler(req, res) {
+  // Überprüfe den Authorization-Header
+  const authHeader = req.headers.authorization;
+  const expectedToken = process.env.AUTH_TOKEN; // Das Token aus den Vercel-Umgebungsvariablen
+
+  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
+    return res.status(401).json({
+      status: 'error',
+      message: 'Unauthorized: Invalid or missing Authorization header',
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ status: 'error', message: 'Only POST requests are allowed' });
   }
@@ -23,12 +32,18 @@ export default async function handler(req, res) {
   console.log('Read URL:', readUrl);
   console.log('Write URL:', writeUrl);
 
+  // Authorization-Header für Stape Store
+  const authorizationHeader = `Bearer <YOUR_TOKEN>`; // Ersetze <YOUR_TOKEN> mit deinem Stape Store Token
+
   // Funktion: Daten aus dem Stape Store holen
   async function getExistingProfile() {
     try {
       const response = await fetch(readUrl, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': authorizationHeader
+        },
       });
 
       console.log('GET Response:', response.status);
@@ -98,7 +113,10 @@ export default async function handler(req, res) {
     try {
       const response = await fetch(writeUrl, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': authorizationHeader
+        },
         body: JSON.stringify({ user_data: updatedProfile }),
       });
 
