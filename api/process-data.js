@@ -3,7 +3,7 @@ export default async function handler(req, res) {
   const authHeader = req.headers.authorization;
   const expectedToken = process.env.AUTH_TOKEN;
 
-  if (!authHeader || !authHeader === `Bearer ${expectedToken}`) {
+  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
     return res.status(401).json({
       status: 'error',
       message: 'Unauthorized: Invalid or missing Authorization header',
@@ -69,54 +69,45 @@ export default async function handler(req, res) {
   function updateProfile(existingProfile) {
     const updatedProfile = { ...existingProfile };
 
+    // Sicherstellen, dass die Arrays initialisiert sind
     if (!updatedProfile.emails) updatedProfile.emails = [];
     if (!updatedProfile.names) updatedProfile.names = [];
     if (!updatedProfile.phones) updatedProfile.phones = [];
 
-    // Debug: Arrays vor der Bearbeitung anzeigen
-    console.log('Existing Emails:', JSON.stringify(updatedProfile.emails));
-    console.log('Existing Phones:', JSON.stringify(updatedProfile.phones));
-    console.log('Existing Names:', JSON.stringify(updatedProfile.names));
+    // Hilfsfunktion: Element nur hinzufügen, wenn es nicht existiert
+    function addIfNotExists(array, key, value, extraData = {}) {
+      const exists = array.some((item) => item[key] === value);
+      if (!exists) {
+        console.log(`Adding new ${key}: ${value}`);
+        array.push({ [key]: value, timestamp: currentTimestamp, ...extraData });
+      } else {
+        console.log(`${key} already exists: ${value}`);
+      }
+    }
 
-    // Hilfsfunktion: E-Mail prüfen und hinzufügen, falls sie fehlt
+    // Emails
     if (email) {
-      const existingEmail = updatedProfile.emails.find((e) => e.email === email);
-      if (!existingEmail) {
-        console.log('Adding new email:', email);
-        updatedProfile.emails.push({ email, timestamp: currentTimestamp });
-      } else {
-        console.log('Email already exists:', email);
-      }
+      addIfNotExists(updatedProfile.emails, 'email', email);
     }
 
-    // Hilfsfunktion: Telefonnummer prüfen und hinzufügen, falls sie fehlt
+    // Phones
     if (phone) {
-      const existingPhone = updatedProfile.phones.find((p) => p.phone === phone);
-      if (!existingPhone) {
-        console.log('Adding new phone:', phone);
-        updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
-      } else {
-        console.log('Phone already exists:', phone);
-      }
+      addIfNotExists(updatedProfile.phones, 'phone', phone);
     }
 
-    // Hilfsfunktion: Namen prüfen und hinzufügen, falls sie fehlen
+    // Names
     if (first_name && last_name) {
-      const existingName = updatedProfile.names.find(
-        (n) => n.first_name === first_name && n.last_name === last_name
+      const fullName = `${first_name} ${last_name}`;
+      const exists = updatedProfile.names.some(
+        (name) => name.first_name === first_name && name.last_name === last_name
       );
-      if (!existingName) {
-        console.log('Adding new name:', `${first_name} ${last_name}`);
+      if (!exists) {
+        console.log(`Adding new name: ${fullName}`);
         updatedProfile.names.push({ first_name, last_name, timestamp: currentTimestamp });
       } else {
-        console.log('Name already exists:', `${first_name} ${last_name}`);
+        console.log(`Name already exists: ${fullName}`);
       }
     }
-
-    // Debug: Arrays nach der Bearbeitung anzeigen
-    console.log('Updated Emails:', JSON.stringify(updatedProfile.emails));
-    console.log('Updated Phones:', JSON.stringify(updatedProfile.phones));
-    console.log('Updated Names:', JSON.stringify(updatedProfile.names));
 
     return updatedProfile;
   }
