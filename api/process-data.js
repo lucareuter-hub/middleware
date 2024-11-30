@@ -19,6 +19,10 @@ export default async function handler(req, res) {
   const readUrl = `${storeurl}/${documentKey}`;
   const currentTimestamp = timestamp || Date.now();
 
+  console.log('Start processing:');
+  console.log('Read URL:', readUrl);
+  console.log('Write URL:', writeUrl);
+
   // Funktion: Daten aus dem Stape Store holen
   async function getExistingProfile() {
     try {
@@ -27,7 +31,10 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
       });
 
+      console.log('GET Response:', response.status);
+
       if (response.status === 404) {
+        console.log('Profile not found. Returning default structure.');
         return { user_data: { emails: [], names: [], phones: [] } }; // Initiale Struktur zurückgeben
       }
 
@@ -36,8 +43,11 @@ export default async function handler(req, res) {
       }
 
       const data = await response.json();
+      console.log('Fetched Data:', data);
+
       return data?.data?.user_data || { emails: [], names: [], phones: [] };
     } catch (error) {
+      console.error('Error fetching existing profile:', error.message);
       throw new Error(`Error fetching existing profile: ${error.message}`);
     }
   }
@@ -55,6 +65,7 @@ export default async function handler(req, res) {
     if (email) {
       const emailExists = updatedProfile.emails.some((e) => e.email === email);
       if (!emailExists) {
+        console.log('Adding new email:', email);
         updatedProfile.emails.push({ email, timestamp: currentTimestamp });
       }
     }
@@ -63,6 +74,7 @@ export default async function handler(req, res) {
     if (phone) {
       const phoneExists = updatedProfile.phones.some((p) => p.phone === phone);
       if (!phoneExists) {
+        console.log('Adding new phone:', phone);
         updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
       }
     }
@@ -73,6 +85,7 @@ export default async function handler(req, res) {
         (n) => n.first_name === first_name && n.last_name === last_name
       );
       if (!nameExists) {
+        console.log('Adding new name:', `${first_name} ${last_name}`);
         updatedProfile.names.push({ first_name, last_name, timestamp: currentTimestamp });
       }
     }
@@ -89,10 +102,13 @@ export default async function handler(req, res) {
         body: JSON.stringify({ user_data: updatedProfile }),
       });
 
+      console.log('PATCH Response:', response.status);
+
       if (!response.ok) {
         throw new Error(`Failed to write profile. Status: ${response.status}`);
       }
     } catch (error) {
+      console.error('Error writing profile:', error.message);
       throw new Error(`Error writing profile: ${error.message}`);
     }
   }
@@ -100,7 +116,11 @@ export default async function handler(req, res) {
   // Hauptprozess
   try {
     const existingProfile = await getExistingProfile();
+    console.log('Existing Profile:', existingProfile);
+
     const updatedProfile = updateProfile(existingProfile);
+    console.log('Updated Profile:', updatedProfile);
+
     await writeProfile(updatedProfile);
 
     return res.status(200).json({
@@ -109,6 +129,7 @@ export default async function handler(req, res) {
       data: updatedProfile,
     });
   } catch (error) {
+    console.error('Processing Error:', error.message);
     return res.status(500).json({
       status: 'error',
       message: `Failed to process data: ${error.message}`,
