@@ -73,15 +73,10 @@ export default async function handler(req, res) {
     if (!updatedProfile.names) updatedProfile.names = [];
     if (!updatedProfile.phones) updatedProfile.phones = [];
 
-    // Hilfsfunktion: Prüfen, ob ein Objekt im Array existiert
-    function isDuplicate(array, key, value) {
-      return array.some((item) => item[key] === value);
-    }
-
-    // E-Mail prüfen und nur hinzufügen, wenn sie fehlt
+    // Hilfsfunktion: E-Mail hinzufügen, falls sie fehlt
     if (email) {
-      const emailExists = isDuplicate(updatedProfile.emails, 'email', email);
-      if (!emailExists) {
+      const existingEmail = updatedProfile.emails.find((e) => e.email === email);
+      if (!existingEmail) {
         console.log('Adding new email:', email);
         updatedProfile.emails.push({ email, timestamp: currentTimestamp });
       } else {
@@ -89,10 +84,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // Telefonnummer prüfen und nur hinzufügen, wenn sie fehlt
+    // Hilfsfunktion: Telefonnummer hinzufügen, falls sie fehlt
     if (phone) {
-      const phoneExists = isDuplicate(updatedProfile.phones, 'phone', phone);
-      if (!phoneExists) {
+      const existingPhone = updatedProfile.phones.find((p) => p.phone === phone);
+      if (!existingPhone) {
         console.log('Adding new phone:', phone);
         updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
       } else {
@@ -100,12 +95,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // Name prüfen und nur hinzufügen, wenn er fehlt
+    // Hilfsfunktion: Namen hinzufügen, falls sie fehlen
     if (first_name && last_name) {
-      const nameExists = updatedProfile.names.some(
+      const existingName = updatedProfile.names.find(
         (n) => n.first_name === first_name && n.last_name === last_name
       );
-      if (!nameExists) {
+      if (!existingName) {
         console.log('Adding new name:', `${first_name} ${last_name}`);
         updatedProfile.names.push({ first_name, last_name, timestamp: currentTimestamp });
       } else {
