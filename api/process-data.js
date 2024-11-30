@@ -9,6 +9,8 @@ export default async function handler(req, res) {
     timestamp,
   } = req.body;
 
+  console.log('Received request body:', JSON.stringify(req.body, null, 2));
+
   if (!storeurl || !documentKey) {
     return res.status(400).json({
       status: 'error',
@@ -24,7 +26,6 @@ export default async function handler(req, res) {
   console.log('Read URL:', readUrl);
   console.log('Write URL:', writeUrl);
 
-  // Function to fetch the existing profile from the database
   async function getExistingProfile() {
     try {
       const response = await fetch(readUrl, {
@@ -44,7 +45,6 @@ export default async function handler(req, res) {
       const data = await response.json();
       console.log('Fetched Data from Database:', JSON.stringify(data, null, 2));
 
-      // Adjust this line based on the actual structure of 'data'
       return data.user_data || { emails: [], names: [], phones: [] };
     } catch (error) {
       console.error('Error fetching existing profile:', error.message);
@@ -52,11 +52,11 @@ export default async function handler(req, res) {
     }
   }
 
-  // Function to update the profile with new data
-  function updateProfile(existingProfile = {}) {
+  function updateProfile(existingProfile = {}, newData) {
+    const { email, phone, first_name, last_name, currentTimestamp } = newData;
+
     const updatedProfile = { ...existingProfile };
 
-    // Ensure arrays are properly initialized
     updatedProfile.emails = Array.isArray(updatedProfile.emails)
       ? updatedProfile.emails
       : [];
@@ -67,25 +67,26 @@ export default async function handler(req, res) {
       ? updatedProfile.phones
       : [];
 
-    // Add new email if it doesn't exist
     if (
       email &&
       !updatedProfile.emails.some((item) => item.email === email)
     ) {
       updatedProfile.emails.push({ email, timestamp: currentTimestamp });
       console.log('Added new email:', email);
+    } else {
+      console.log('Email not added (may already exist or undefined):', email);
     }
 
-    // Add new phone if it doesn't exist
     if (
       phone &&
       !updatedProfile.phones.some((item) => item.phone === phone)
     ) {
       updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
       console.log('Added new phone:', phone);
+    } else {
+      console.log('Phone not added (may already exist or undefined):', phone);
     }
 
-    // Add new name if it doesn't exist
     if (
       first_name &&
       last_name &&
@@ -100,13 +101,26 @@ export default async function handler(req, res) {
         timestamp: currentTimestamp,
       });
       console.log('Added new name:', `${first_name} ${last_name}`);
+    } else {
+      console.log(
+        'Name not added (may already exist or undefined):',
+        `${first_name} ${last_name}`
+      );
     }
+
+    console.log(
+      'Updated Profile after additions:',
+      JSON.stringify(updatedProfile, null, 2)
+    );
 
     return updatedProfile;
   }
 
-  // Function to check if the profile has changed
   function isProfileChanged(existingProfile, updatedProfile) {
+    console.log('Comparing profiles:');
+    console.log('Existing Profile:', JSON.stringify(existingProfile, null, 2));
+    console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
+
     const keysToCompare = ['emails', 'names', 'phones'];
 
     for (const key of keysToCompare) {
@@ -122,7 +136,6 @@ export default async function handler(req, res) {
         const existingItem = existingData[i];
         const updatedItem = updatedData[i];
 
-        // Compare the items
         if (JSON.stringify(existingItem) !== JSON.stringify(updatedItem)) {
           console.log(
             `Detected change in ${key} at index ${i}.`,
@@ -140,7 +153,6 @@ export default async function handler(req, res) {
     return false;
   }
 
-  // Function to write the updated profile back to the database
   async function writeProfile(updatedProfile) {
     try {
       console.log('Sending PATCH request to update profile...');
@@ -163,22 +175,28 @@ export default async function handler(req, res) {
     }
   }
 
-  // Main execution block
   try {
     const existingProfile = (await getExistingProfile()) || {
       emails: [],
       names: [],
       phones: [],
     };
+
     console.log(
       'Existing Profile from Database:',
       JSON.stringify(existingProfile, null, 2)
     );
 
-    const updatedProfile = updateProfile(existingProfile);
+    const updatedProfile = updateProfile(existingProfile, {
+      email,
+      phone,
+      first_name,
+      last_name,
+      currentTimestamp,
+    });
+
     console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
 
-    // Compare existing and updated profiles
     const changesExist = isProfileChanged(existingProfile, updatedProfile);
 
     if (changesExist) {
