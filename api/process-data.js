@@ -79,17 +79,17 @@ export default async function handler(req, res) {
       const existingData = existingProfile[key] || [];
       const updatedData = updatedProfile[key] || [];
 
-      if (existingData.length !== updatedData.length) {
-        console.log(`${key} length mismatch detected.`);
+      // Prüfen, ob das Array im updatedProfile neue Elemente enthält
+      if (updatedData.length > existingData.length) {
+        console.log(`Detected new data in ${key}: ${JSON.stringify(updatedData)}`);
         return true;
       }
 
+      // Prüfen, ob sich die Inhalte unterscheiden
       const existingSet = new Set(existingData.map((item) => JSON.stringify(item)));
-      const updatedSet = new Set(updatedData.map((item) => JSON.stringify(item)));
-
-      for (const updatedItem of updatedSet) {
-        if (!existingSet.has(updatedItem)) {
-          console.log(`New ${key} data detected: ${updatedItem}`);
+      for (const updatedItem of updatedData) {
+        if (!existingSet.has(JSON.stringify(updatedItem))) {
+          console.log(`New item detected in ${key}: ${JSON.stringify(updatedItem)}`);
           return true;
         }
       }
