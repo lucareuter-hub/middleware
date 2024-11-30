@@ -44,7 +44,8 @@ export default async function handler(req, res) {
       });
 
       if (response.status === 404) {
-        return { user_data: { emails: [], names: [], phones: [] } };
+        console.log('Profile not found. Initializing default structure.');
+        return { user_data: { emails: [], names: [], phones: [] } }; // Initialisiere leere Struktur
       }
 
       if (!response.ok) {
@@ -69,7 +70,8 @@ export default async function handler(req, res) {
 
   // Funktion: Daten aktualisieren oder hinzufügen
   function updateProfile(existingProfile) {
-    const updatedProfile = { ...existingProfile };
+    // `user_data` sicherstellen
+    const updatedProfile = existingProfile || { user_data: { emails: [], names: [], phones: [] } };
 
     if (!updatedProfile.emails) updatedProfile.emails = [];
     if (!updatedProfile.names) updatedProfile.names = [];
