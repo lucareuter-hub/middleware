@@ -73,9 +73,14 @@ export default async function handler(req, res) {
     if (!updatedProfile.names) updatedProfile.names = [];
     if (!updatedProfile.phones) updatedProfile.phones = [];
 
+    // Hilfsfunktion: Prüfen, ob ein Objekt im Array existiert
+    function isDuplicate(array, key, value) {
+      return array.some((item) => item[key] === value);
+    }
+
     // E-Mail prüfen und nur hinzufügen, wenn sie fehlt
     if (email) {
-      const emailExists = updatedProfile.emails.some((e) => e.email === email);
+      const emailExists = isDuplicate(updatedProfile.emails, 'email', email);
       if (!emailExists) {
         console.log('Adding new email:', email);
         updatedProfile.emails.push({ email, timestamp: currentTimestamp });
@@ -86,7 +91,7 @@ export default async function handler(req, res) {
 
     // Telefonnummer prüfen und nur hinzufügen, wenn sie fehlt
     if (phone) {
-      const phoneExists = updatedProfile.phones.some((p) => p.phone === phone);
+      const phoneExists = isDuplicate(updatedProfile.phones, 'phone', phone);
       if (!phoneExists) {
         console.log('Adding new phone:', phone);
         updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
