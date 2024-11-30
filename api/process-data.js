@@ -1,27 +1,35 @@
 export default async function handler(req, res) {
-  // Prüfe die Methode der Anfrage
+  // Prüfe, ob die Anfrage den Authorization-Header enthält
+  const authHeader = req.headers.authorization;
+  const expectedToken = process.env.AUTH_TOKEN; // Speichere deinen Token als Umgebungsvariable
+
+  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
+    return res.status(401).json({
+      status: 'error',
+      message: 'Unauthorized: Ungültiger oder fehlender Authorization-Header',
+    });
+  }
+
+  // Prüfe, ob die Methode POST ist
   if (req.method === 'POST') {
-    // Lese die Daten aus der Anfrage
     const { name, message } = req.body;
 
-    // Falls keine Daten gesendet wurden, sende einen Fehler zurück
     if (!name || !message) {
       return res.status(400).json({
         status: 'error',
-        message: 'Bitte Name und Nachricht angeben.',
+        message: 'Name und Nachricht sind erforderlich!',
       });
     }
 
-    // Antwort mit den empfangenen Daten
     return res.status(200).json({
       status: 'success',
       receivedData: { name, message },
     });
   }
 
-  // Wenn keine POST-Anfrage, sende einen Fehler zurück
-  res.status(405).json({
+  // Wenn die Methode nicht unterstützt wird
+  return res.status(405).json({
     status: 'error',
-    message: 'Nur POST-Anfragen werden unterstützt.',
+    message: 'Nur POST-Anfragen sind erlaubt!',
   });
 }
