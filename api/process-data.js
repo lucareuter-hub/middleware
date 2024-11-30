@@ -65,48 +65,42 @@ export default async function handler(req, res) {
     }
   }
 
+  // Funktion: Array deduplizieren
+  function deduplicateArray(array, key) {
+    return array.filter(
+      (item, index, self) =>
+        index === self.findIndex((other) => other[key] === item[key])
+    );
+  }
+
   // Funktion: Daten aktualisieren oder hinzufügen
   function updateProfile(existingProfile) {
     const updatedProfile = { ...existingProfile };
 
-    // Sicherstellen, dass die Arrays initialisiert sind
     if (!updatedProfile.emails) updatedProfile.emails = [];
     if (!updatedProfile.names) updatedProfile.names = [];
     if (!updatedProfile.phones) updatedProfile.phones = [];
 
-    // Hilfsfunktion: Element nur hinzufügen, wenn es nicht existiert
-    function addIfNotExists(array, key, value, extraData = {}) {
-      const exists = array.some((item) => item[key] === value);
-      if (!exists) {
-        console.log(`Adding new ${key}: ${value}`);
-        array.push({ [key]: value, timestamp: currentTimestamp, ...extraData });
-      } else {
-        console.log(`${key} already exists: ${value}`);
-      }
-    }
-
-    // Emails
+    // Emails hinzufügen, falls sie fehlen
     if (email) {
-      addIfNotExists(updatedProfile.emails, 'email', email);
+      updatedProfile.emails.push({ email, timestamp: currentTimestamp });
+      updatedProfile.emails = deduplicateArray(updatedProfile.emails, 'email');
     }
 
-    // Phones
+    // Phones hinzufügen, falls sie fehlen
     if (phone) {
-      addIfNotExists(updatedProfile.phones, 'phone', phone);
+      updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
+      updatedProfile.phones = deduplicateArray(updatedProfile.phones, 'phone');
     }
 
-    // Names
+    // Names hinzufügen, falls sie fehlen
     if (first_name && last_name) {
-      const fullName = `${first_name} ${last_name}`;
-      const exists = updatedProfile.names.some(
-        (name) => name.first_name === first_name && name.last_name === last_name
-      );
-      if (!exists) {
-        console.log(`Adding new name: ${fullName}`);
-        updatedProfile.names.push({ first_name, last_name, timestamp: currentTimestamp });
-      } else {
-        console.log(`Name already exists: ${fullName}`);
-      }
+      updatedProfile.names.push({
+        first_name,
+        last_name,
+        timestamp: currentTimestamp,
+      });
+      updatedProfile.names = deduplicateArray(updatedProfile.names, 'first_name');
     }
 
     return updatedProfile;
