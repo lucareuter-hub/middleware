@@ -1,244 +1,141 @@
+import fetch from "node-fetch";
+
 export default async function handler(req, res) {
-  const {
-    storeurl,
-    documentKey,
-    first_name,
-    last_name,
-    email,
-    phone,
-    timestamp,
-  } = req.body;
+  const { storeUrl, documentKey, first_name, last_name, email, phone, timestamp } = req.body;
 
-  console.log('Received request body:', JSON.stringify(req.body, null, 2));
+  // Überprüfung des AUTH_TOKEN aus Umgebungsvariablen
+  const authToken = process.env.AUTH_TOKEN;
+  const requestAuthToken = req.headers.authorization?.split("Bearer ")[1];
 
-  if (!storeurl || !documentKey) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'storeurl and documentKey are required',
+  if (!authToken || requestAuthToken !== authToken) {
+    return res.status(401).json({
+      status: "error",
+      message: "Unauthorized. Invalid or missing AUTH_TOKEN.",
     });
   }
 
-  const writeUrl = `${storeurl}/${documentKey}`;
-  const readUrl = `${storeurl}/${documentKey}`;
+  if (!storeUrl || !documentKey) {
+    return res.status(400).json({
+      status: "error",
+      message: "storeUrl and documentKey are required",
+    });
+  }
+
+  // URLs
+  const writeUrl = `${storeUrl}/${documentKey}`;
+  const readUrl = `${storeUrl}/${documentKey}`;
   const currentTimestamp = timestamp || Date.now();
 
-  console.log('Start processing...');
-  console.log('Read URL:', readUrl);
-  console.log('Write URL:', writeUrl);
+  console.log("Starte GET-Request für bestehende Daten...");
+  console.log("Lese URL:", readUrl);
 
-  async function getExistingProfile() {
-    try {
-      const response = await fetch(readUrl, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (response.status === 404) {
-        console.log('Profile not found. Initializing default structure.');
-        return { emails: [], names: [], phones: [] };
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch profile. Status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Fetched Data from Database:', JSON.stringify(data, null, 2));
-
-      return data.user_data || { emails: [], names: [], phones: [] };
-    } catch (error) {
-      console.error('Error fetching existing profile:', error.message);
-      throw new Error('Failed to fetch profile.');
-    }
-  }
-
-  function updateProfile(existingProfile = {}, newData) {
-    const { email, phone, first_name, last_name, currentTimestamp } = newData;
-
-    // Deep copy the arrays to prevent modifying existingProfile
-    const updatedProfile = {
-      emails: [...(existingProfile.emails || [])],
-      names: [...(existingProfile.names || [])],
-      phones: [...(existingProfile.phones || [])],
-    };
-
-    if (
-      email &&
-      !updatedProfile.emails.some((item) => item.email === email)
-    ) {
-      updatedProfile.emails.push({ email, timestamp: currentTimestamp });
-      console.log('Added new email:', email);
-    } else {
-      console.log('Email not added (may already exist or undefined):', email);
-    }
-
-    if (
-      phone &&
-      !updatedProfile.phones.some((item) => item.phone === phone)
-    ) {
-      updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
-      console.log('Added new phone:', phone);
-    } else {
-      console.log('Phone not added (may already exist or undefined):', phone);
-    }
-
-    if (
-      first_name &&
-      last_name &&
-      !updatedProfile.names.some(
-        (item) =>
-          item.first_name === first_name && item.last_name === last_name
-      )
-    ) {
-      updatedProfile.names.push({
-        first_name,
-        last_name,
-        timestamp: currentTimestamp,
-      });
-      console.log('Added new name:', `${first_name} ${last_name}`);
-    } else {
-      console.log(
-        'Name not added (may already exist or undefined):',
-        `${first_name} ${last_name}`
-      );
-    }
-
-    console.log(
-      'Updated Profile after additions:',
-      JSON.stringify(updatedProfile, null, 2)
-    );
-
-    return updatedProfile;
-  }
-
-  function isProfileChanged(existingProfile, updatedProfile) {
-    console.log('Comparing profiles:');
-    console.log('Existing Profile:', JSON.stringify(existingProfile, null, 2));
-    console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
-
-    const keysToCompare = ['emails', 'names', 'phones'];
-
-    for (const key of keysToCompare) {
-      let existingData = existingProfile[key] || [];
-      let updatedData = updatedProfile[key] || [];
-
-      if (updatedData.length !== existingData.length) {
-        console.log(`Detected change in ${key} length.`);
-        return true;
-      }
-
-      // Sort arrays to ensure consistent order
-      if (key === 'emails') {
-        existingData = existingData.slice().sort((a, b) => a.email.localeCompare(b.email));
-        updatedData = updatedData.slice().sort((a, b) => a.email.localeCompare(b.email));
-      } else if (key === 'phones') {
-        existingData = existingData.slice().sort((a, b) => a.phone.localeCompare(b.phone));
-        updatedData = updatedData.slice().sort((a, b) => a.phone.localeCompare(b.phone));
-      } else if (key === 'names') {
-        existingData = existingData.slice().sort((a, b) => {
-          const nameA = `${a.first_name} ${a.last_name}`;
-          const nameB = `${b.first_name} ${b.last_name}`;
-          return nameA.localeCompare(nameB);
-        });
-        updatedData = updatedData.slice().sort((a, b) => {
-          const nameA = `${a.first_name} ${a.last_name}`;
-          const nameB = `${b.first_name} ${b.last_name}`;
-          return nameA.localeCompare(nameB);
-        });
-      }
-
-      for (let i = 0; i < updatedData.length; i++) {
-        const existingItem = { ...existingData[i] };
-        const updatedItem = { ...updatedData[i] };
-
-        // Remove the timestamp before comparison
-        delete existingItem.timestamp;
-        delete updatedItem.timestamp;
-
-        if (JSON.stringify(existingItem) !== JSON.stringify(updatedItem)) {
-          console.log(
-            `Detected change in ${key} at index ${i}.`,
-            'Existing item:',
-            existingItem,
-            'Updated item:',
-            updatedItem
-          );
-          return true;
-        }
-      }
-    }
-
-    console.log('No changes detected in profile.');
-    return false;
-  }
-
-  async function writeProfile(updatedProfile) {
-    try {
-      console.log('Sending PATCH request to update profile...');
-      const response = await fetch(writeUrl, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_data: updatedProfile }),
-      });
-
-      console.log('PATCH Response Status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`Failed to write profile. Status: ${response.status}`);
-      }
-
-      console.log('Profile successfully updated.');
-    } catch (error) {
-      console.error('Error writing profile:', error.message);
-      throw new Error('Failed to write profile.');
-    }
-  }
+  let existingData;
 
   try {
-    const existingProfile = (await getExistingProfile()) || {
-      emails: [],
-      names: [],
-      phones: [],
+    // GET-Request für bestehende Daten
+    const response = await fetch(readUrl, { method: "GET" });
+    const data = await response.json();
+
+    existingData = data.data?.user_data || {
+      emails: {},
+      phones: {},
+      names: {},
+      current_data: {}, // Falls current_data nicht existiert
     };
-
     console.log(
-      'Existing Profile from Database:',
-      JSON.stringify(existingProfile, null, 2)
+      "Bestehende Daten aus der Datenbank:",
+      JSON.stringify(existingData, null, 2)
     );
+  } catch (error) {
+    console.error("Fehler beim Abrufen bestehender Daten:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Fehler beim Abrufen bestehender Daten",
+    });
+  }
 
-    const updatedProfile = updateProfile(existingProfile, {
-      email,
-      phone,
-      first_name,
-      last_name,
-      currentTimestamp,
+  // Zusammenführen der neuen und bestehenden Daten
+  const updatedEmails = { ...existingData.emails };
+  if (email && !updatedEmails[email]) {
+    updatedEmails[email] = { timestamp: currentTimestamp };
+    console.log("Neue Email hinzugefügt:", email);
+  }
+
+  const updatedPhones = { ...existingData.phones };
+  if (phone && !updatedPhones[phone]) {
+    updatedPhones[phone] = { timestamp: currentTimestamp };
+    console.log("Neue Telefonnummer hinzugefügt:", phone);
+  }
+
+  const fullName = `${first_name || ""} ${last_name || ""}`.trim();
+  const updatedNames = { ...existingData.names };
+  if (fullName && !updatedNames[fullName]) {
+    updatedNames[fullName] = { timestamp: currentTimestamp };
+    console.log("Neuer Name hinzugefügt:", fullName);
+  }
+
+  // Aktualisiere current_data mit den neuesten Werten
+  const updatedCurrentData = {
+    email: email || existingData.current_data.email || "",
+    phone: phone || existingData.current_data.phone || "",
+    name: fullName || existingData.current_data.name || "",
+    timestamp: currentTimestamp,
+  };
+
+  // Zusammengeführte Daten
+  const updatedData = {
+    emails: updatedEmails,
+    phones: updatedPhones,
+    names: updatedNames,
+    current_data: updatedCurrentData,
+  };
+
+  console.log(
+    "Zusammengeführte und deduplizierte Daten:",
+    JSON.stringify(updatedData, null, 2)
+  );
+
+  // Vergleich der zusammengeführten Daten mit den bestehenden Daten
+  const dataHasChanged =
+    JSON.stringify(existingData.emails) !== JSON.stringify(updatedEmails) ||
+    JSON.stringify(existingData.phones) !== JSON.stringify(updatedPhones) ||
+    JSON.stringify(existingData.names) !== JSON.stringify(updatedNames) ||
+    JSON.stringify(existingData.current_data) !== JSON.stringify(updatedCurrentData);
+
+  if (!dataHasChanged) {
+    console.log("Keine Änderungen erkannt. Überspringe Schreiboperation.");
+    return res.status(200).json({
+      status: "success",
+      message: "Keine Änderungen erkannt",
+    });
+  }
+
+  console.log("Änderungen erkannt. Speichere aktualisierte Daten...");
+  console.log("Schreibe URL:", writeUrl);
+
+  try {
+    // PATCH-Request zum Speichern der aktualisierten Daten
+    const response = await fetch(writeUrl, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user_data: updatedData }),
     });
 
-    console.log('Updated Profile:', JSON.stringify(updatedProfile, null, 2));
+    const result = await response.json();
+    console.log("Daten erfolgreich aktualisiert:", result);
 
-    const changesExist = isProfileChanged(existingProfile, updatedProfile);
-
-    if (changesExist) {
-      console.log('Changes detected. Writing profile...');
-      await writeProfile(updatedProfile);
-      return res.status(200).json({
-        status: 'success',
-        message: 'Profile updated successfully',
-        data: updatedProfile,
-      });
-    } else {
-      console.log('No changes detected. Skipping write operation.');
-      return res.status(200).json({
-        status: 'success',
-        message: 'No changes detected',
-        data: existingProfile,
-      });
-    }
+    return res.status(200).json({
+      status: "success",
+      message: "Daten erfolgreich aktualisiert",
+      data: result,
+    });
   } catch (error) {
-    console.error('Processing Error:', error.message);
+    console.error("Fehler beim Aktualisieren der Daten:", error);
     return res.status(500).json({
-      status: 'error',
-      message: error.message,
+      status: "error",
+      message: "Fehler beim Aktualisieren der Daten",
     });
   }
 }
