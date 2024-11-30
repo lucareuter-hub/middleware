@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+
 
 export default async function handler(req, res) {
   const { storeUrl, documentKey, first_name, last_name, email, phone, timestamp } = req.body;
