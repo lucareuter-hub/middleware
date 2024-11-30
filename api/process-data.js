@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   const authHeader = req.headers.authorization;
   const expectedToken = process.env.AUTH_TOKEN;
 
-  if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
+  if (!authHeader || !authHeader === `Bearer ${expectedToken}`) {
     return res.status(401).json({
       status: 'error',
       message: 'Unauthorized: Invalid or missing Authorization header',
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       console.log('GET Response Status:', response.status);
 
       if (response.status === 404) {
-        console.log('Profile not found. Returning default structure.');
+        console.log('Profile not found. Initializing default structure.');
         return { user_data: { emails: [], names: [], phones: [] } }; // Initialisiere leere Struktur
       }
 
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
 
       const data = await response.json();
       console.log('Fetched Data from Database:', JSON.stringify(data, null, 2));
+
       return data?.data?.user_data || { emails: [], names: [], phones: [] };
     } catch (error) {
       console.error('Error fetching existing profile:', error.message);
@@ -107,7 +108,14 @@ export default async function handler(req, res) {
 
   // Funktion: Vergleichen von Objekten
   function isProfileChanged(existingProfile, updatedProfile) {
-    return JSON.stringify(existingProfile) !== JSON.stringify(updatedProfile);
+    // Standardisieren, um fehlende Felder auszugleichen
+    const standardizedExistingProfile = {
+      emails: existingProfile.emails || [],
+      names: existingProfile.names || [],
+      phones: existingProfile.phones || [],
+    };
+
+    return JSON.stringify(standardizedExistingProfile) !== JSON.stringify(updatedProfile);
   }
 
   // Funktion: Daten im Stape Store speichern
