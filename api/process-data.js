@@ -65,14 +65,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // Funktion: Array deduplizieren
-  function deduplicateArray(array, key) {
-    return array.filter(
-      (item, index, self) =>
-        index === self.findIndex((other) => other[key] === item[key])
-    );
-  }
-
   // Funktion: Daten aktualisieren oder hinzufügen
   function updateProfile(existingProfile) {
     const updatedProfile = existingProfile || { emails: [], names: [], phones: [] };
@@ -84,13 +76,11 @@ export default async function handler(req, res) {
     // Emails hinzufügen, falls sie fehlen
     if (email) {
       updatedProfile.emails.push({ email, timestamp: currentTimestamp });
-      updatedProfile.emails = deduplicateArray(updatedProfile.emails, 'email');
     }
 
     // Phones hinzufügen, falls sie fehlen
     if (phone) {
       updatedProfile.phones.push({ phone, timestamp: currentTimestamp });
-      updatedProfile.phones = deduplicateArray(updatedProfile.phones, 'phone');
     }
 
     // Names hinzufügen, falls sie fehlen
@@ -100,7 +90,6 @@ export default async function handler(req, res) {
         last_name,
         timestamp: currentTimestamp,
       });
-      updatedProfile.names = deduplicateArray(updatedProfile.names, 'first_name');
     }
 
     return updatedProfile;
@@ -108,24 +97,35 @@ export default async function handler(req, res) {
 
   // Funktion: Vergleichen von Objekten
   function isProfileChanged(existingProfile, updatedProfile) {
-    // Standardisierung sicherstellen
     const standardizedExistingProfile = {
       emails: existingProfile.emails || [],
       names: existingProfile.names || [],
       phones: existingProfile.phones || [],
     };
 
-    // Vergleich der Längen der Arrays (neue Daten hinzugefügt?)
-    if (
-      standardizedExistingProfile.emails.length !== updatedProfile.emails.length ||
-      standardizedExistingProfile.names.length !== updatedProfile.names.length ||
-      standardizedExistingProfile.phones.length !== updatedProfile.phones.length
-    ) {
+    console.log('Standardized Existing Profile:', JSON.stringify(standardizedExistingProfile));
+    console.log('Updated Profile:', JSON.stringify(updatedProfile));
+
+    // Check: Emails
+    if (standardizedExistingProfile.emails.length !== updatedProfile.emails.length) {
+      console.log('Email length mismatch detected.');
       return true;
     }
 
-    // Vergleich der Inhalte
-    return JSON.stringify(standardizedExistingProfile) !== JSON.stringify(updatedProfile);
+    // Check: Phones
+    if (standardizedExistingProfile.phones.length !== updatedProfile.phones.length) {
+      console.log('Phone length mismatch detected.');
+      return true;
+    }
+
+    // Check: Names
+    if (standardizedExistingProfile.names.length !== updatedProfile.names.length) {
+      console.log('Name length mismatch detected.');
+      return true;
+    }
+
+    console.log('No changes detected in profile.');
+    return false;
   }
 
   // Funktion: Daten im Stape Store speichern
@@ -154,17 +154,12 @@ export default async function handler(req, res) {
 
   // Hauptprozess
   try {
-    // Profil aus der Datenbank abrufen
     const existingProfile = await getExistingProfile();
-
     console.log('Existing Profile from Database:', JSON.stringify(existingProfile, null, 2));
 
-    // Profil aktualisieren
     const updatedProfile = updateProfile(existingProfile);
-
     console.log('Updated Profile to Write:', JSON.stringify(updatedProfile, null, 2));
 
-    // Nur schreiben, wenn sich etwas geändert hat
     if (isProfileChanged(existingProfile, updatedProfile)) {
       console.log('Profile has changed. Writing to Stape Store...');
       await writeProfile(updatedProfile);
